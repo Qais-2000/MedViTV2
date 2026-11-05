@@ -154,7 +154,7 @@ def main():
         ck = torch.load(last_path, map_location=device)
         model.load_state_dict(ck['model']); opt.load_state_dict(ck['opt']); sched.load_state_dict(ck['sched'])
         start_epoch, best_score = ck['epoch'] + 1, ck['best_score']
-        torch.set_rng_state(ck['rng']).cpu(); g.manual_seed(a.seed + start_epoch)
+        torch.set_rng_state(ck['rng'].cpu()); g.manual_seed(a.seed + start_epoch)
         print(f'Resuming from epoch {start_epoch + 1}', flush=True)
 
     fields = ['epoch', 'train_loss', 'val_accuracy', 'val_balanced_accuracy', 'val_macro_auc',
