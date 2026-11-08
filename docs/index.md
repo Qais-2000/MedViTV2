@@ -3,8 +3,8 @@ layout: default
 title: Imbalance-Aware Training for Skin Lesion Classification
 ---
 
-**ELEC-444 Final Project · Concordia University · Fall 2026**
-Team: Person A (Mohammad Qais Arshad), Person B (Mohammad Mohibul Haque), Person C (Ifthakhar Parvez Prothoy) <!-- TODO: real names -->
+**ELEC-6661 Final Project · Concordia University · Fall 2026**
+Team: Person A (Mohammad Qais Arshad), Person B (Mohammad Mohibul Haque), Person C (Ifthakhar Parvez Prothoy)
 Code: [github.com/Qais-2000/MedViTV2](https://github.com/Qais-2000/MedViTV2)
 
 ---
@@ -34,15 +34,15 @@ Skin cancer datasets are highly imbalanced: most images are harmless moles (nevi
 
 ### 4.2 Focal loss
 
-*Section by Person C (draft — rewrite in your own words).*
+*Section by Ifthakhar Parvez Prothoy*
 
-**Idea.** Standard cross-entropy gives every training image the same importance. Because most images are easy, confidently classified nevi, they dominate training. **Focal loss** (Lin et al., 2017) multiplies the cross-entropy of each example by (1 − p<sub>t</sub>)<sup>γ</sup>, where p<sub>t</sub> is the predicted probability of the true class:
+**The idea.** Most images in our dataset are moles, and they are easy for the model. With normal cross-entropy, these easy images still take up most of the training. Focal loss fixes this by giving less weight to images the model already gets right, and more weight to the ones it gets wrong.
 
-> FL(p<sub>t</sub>) = −(1 − p<sub>t</sub>)<sup>γ</sup> · log(p<sub>t</sub>)
+It does this by multiplying the normal loss by (1 − p)<sup>γ</sup>, where p is how sure the model is about the correct class (Lin et al., 2017). If the model is very sure, this number is close to zero, so the image barely counts. If the model is unsure or wrong, the image counts almost fully. The setting γ controls how strong this effect is. With γ = 0, focal loss is the same as normal cross-entropy.
 
-Easy examples (p<sub>t</sub> close to 1) get almost no weight, so training focuses on hard, misclassified examples. γ = 0 is ordinary cross-entropy; larger γ ignores easy examples more strongly. Unlike weighted cross-entropy, focal loss does **not** use the class counts — it only reacts to how confident the model is. We used focal loss without the optional per-class α weights, so that the two methods test two different ideas.
+Focal loss is different from weighted cross-entropy (Section 4.1). Weighted cross-entropy gives more importance to rare *classes*. Focal loss gives more importance to hard *images*, no matter which class they belong to.
 
-**Choosing γ (sensitivity analysis).** We trained γ = 1, 2 and 3 with seed 0 and picked γ on validation:
+**Choosing γ.** We tried γ = 1, 2 and 3 with seed 0 and picked the one with the best validation score.
 
 | γ | Validation balanced accuracy | Test balanced accuracy |
 |---|---|---|
@@ -50,9 +50,9 @@ Easy examples (p<sub>t</sub> close to 1) get almost no weight, so training focus
 | 2 | 63.7% | **66.4%** |
 | 3 | **65.4%** ← selected | 65.2% |
 
-γ = 3 had the best validation score, so it was used for seeds 1 and 2. On the test set γ = 2 would have scored slightly higher, but choosing it would mean selecting on the test set — the mistake we avoid throughout this project. All three values lie within about 2.5 points, so focal loss is **not very sensitive to γ** in this range.
+γ = 3 was best on validation, so we used it. On the test set, γ = 2 looked a little better, but we did not pick it, because choosing settings by looking at the test set would make our test results unfair. The three values gave similar results (within about 2.5 points), so the choice of γ does not matter much here.
 
-**Result over 3 seeds (γ = 3, test set):**
+**Results over 3 seeds (γ = 3, test set).**
 
 | Seed | Balanced accuracy | Accuracy | Melanoma recall | Macro F1 |
 |---|---|---|---|---|
@@ -61,7 +61,9 @@ Easy examples (p<sub>t</sub> close to 1) get almost no weight, so training focus
 | 2 | 62.0% | 79.4% | 35.0% | 0.610 |
 | **Mean ± std** | **62.2 ± 2.9%** | **79.9 ± 0.5%** | **36.3 ± 3.1%** | **0.630 ± 0.026** |
 
-**What we learned.** With a single seed, focal loss looked like a small improvement over cross-entropy. Averaged over three seeds, that gain disappears: focal loss performs about the same as cross-entropy, and melanoma recall is slightly lower. Focal loss changes *which examples* the model focuses on, but it does not shift predictions toward the rare classes the way class weighting does. On DermaMNIST, focal loss alone is not enough to fix class imbalance.
+**What we found.** With seed 0 alone, focal loss looked slightly better than cross-entropy. After running three seeds, that small gain disappeared. On average, focal loss performed about the same as cross-entropy, and it found slightly fewer melanomas (36% vs about 40%). In comparison, weighted cross-entropy raised melanoma recall to about 57%.
+
+Our explanation is simple: focal loss focuses on hard images, but it does not tell the model that rare classes are important. So it does not push the model toward the rare lesions. On DermaMNIST, focal loss alone was not enough to deal with the class imbalance.
 
 ## 5. Results
 
