@@ -150,19 +150,89 @@ Focal loss is different from weighted cross-entropy (Section 4.1). Weighted cros
 
 Our explanation is simple: focal loss focuses on hard images, but it does not tell the model that rare classes are important. So it does not push the model toward the rare lesions. On DermaMNIST, focal loss alone was not enough to deal with the class imbalance.
 
-   ## 5. Results
+## 5. Results
 
-   <!-- TODO (Person A): main table ... -->
+All numbers are on the **test set**, as **mean ± standard deviation over 3 seeds**. Every method used the same model, data, training budget and validation-based model selection.
 
-   <!-- TODO (Person B): figures ... -->
+### Main results
 
-   ### Recall vs. precision tradeoff
+| Method | Balanced accuracy | Melanoma recall | Accuracy | Macro F1 | Macro AUC |
+|---|---|---|---|---|---|
+| Cross-entropy (baseline) | 64.1 ± 2.2% | 40.5 ± 0.5% | **81.0 ± 0.2%** | **0.641 ± 0.022** | **0.953 ± 0.002** |
+| Weighted CE (inverse) | **70.6 ± 2.2%** | **57.4 ± 2.9%** | 70.3 ± 1.4% | 0.556 ± 0.023 | 0.937 ± 0.001 |
+| Focal loss (γ = 3) | 62.2 ± 2.9% | 36.3 ± 3.1% | 79.9 ± 0.5% | 0.630 ± 0.026 | 0.945 ± 0.001 |
 
-   <!-- TODO (all): ... -->
+![Summary of the three methods](fig_summary.png)
 
-   ### Examples
+**Weighted cross-entropy is the only method that clearly helps the rare classes.** It raises balanced accuracy by about 6.5 points and melanoma recall by about 17 points, which is larger than the seed-to-seed variation. Focal loss stays within the noise of the baseline.
 
-   <!-- TODO (Person C): ... -->
+### Sensitivity analysis (seed 0)
+
+| Method | Setting | Val balanced acc | Test balanced acc | Test melanoma recall | Test accuracy |
+|---|---|---|---|---|---|
+| Weighted CE | inverse ← chosen | **72.0%** | 72.4% | 60.5% | 69.4% |
+| Weighted CE | sqrt | 70.3% | 69.6% | 47.5% | 76.8% |
+| Focal loss | γ = 1 | 63.0% | 63.3% | 43.0% | 80.7% |
+| Focal loss | γ = 2 | 63.7% | 66.4% | 42.6% | 80.7% |
+| Focal loss | γ = 3 ← chosen | **65.4%** | 65.2% | 39.9% | 80.2% |
+
+Stronger class weighting (inverse) gives more rare-class recall but less overall accuracy than the gentler square-root weights: a clear "dose-response". Focal loss is not very sensitive to γ.
+
+### Recall vs. precision tradeoff
+
+Change compared with cross-entropy, in percentage points (mean over 3 seeds):
+
+| Class | Weighted: Δ recall | Weighted: Δ precision | Focal: Δ recall | Focal: Δ precision |
+|---|---|---|---|---|
+| Actinic keratoses | +11.1 | −19.7 | −3.0 | +0.3 |
+| Basal cell carcinoma | +2.3 | −11.4 | −1.0 | +2.8 |
+| Benign keratosis | −3.6 | −11.6 | −4.8 | −2.5 |
+| Dermatofibroma | +27.5 | −25.5 | −1.4 | +16.0 |
+| Melanoma | +16.9 | −21.3 | −4.2 | −4.0 |
+| Nevi (moles) | −19.8 | +6.4 | 0.0 | −1.7 |
+| Vascular lesions | +11.5 | −29.2 | +1.1 | −3.7 |
+
+![Per-class recall and precision](fig_per_class.png)
+
+The gain from weighted cross-entropy is not free. For every rare class where recall goes up, **precision goes down by 11–29 points**. For example, weighted CE finds 67% of dermatofibromas (vs 39% with CE), but only about 1 in 5 of its dermatofibroma predictions is correct. The cost lands on the majority class: **nevi recall drops from 93% to 74%**, and 12% of harmless moles are now called melanoma (vs 2% with CE).
+
+![Confusion matrices](fig_confusion.png)
+
+The confusion matrices show where this comes from. With cross-entropy, 38% of melanomas are classified as nevi; with weighted CE this drops to 13%. Weighted CE moves the model's decisions away from "nevus" for all uncertain cases, which catches more melanomas but also flags more harmless moles.
+
+Macro AUC is slightly *lower* for weighted CE (0.937 vs 0.953). AUC measures how well the model ranks cases, independent of the decision threshold. So weighting does not make the model better at telling lesions apart; it mainly **moves the decision boundary toward the rare classes**. In a screening setting this can still be the right choice (a missed melanoma is worse than a false alarm that a dermatologist can check), but it should be a deliberate decision, not a free improvement.
+
+### Training curves
+
+![Training curves](fig_training_curves.png)
+
+Weighted CE reaches higher validation balanced accuracy from the very first epochs and stays ahead. Cross-entropy and focal loss follow almost the same curve. All three curves are still slowly rising at epoch 50, so longer training might improve every method a little.
+
+### Examples
+
+*Seed-0 models. Labels: CE = cross-entropy, W = weighted CE, F = focal loss.*
+
+**Melanomas missed by cross-entropy but caught by weighted CE** (52 such images in the test set):
+
+![Melanomas caught by weighted CE](examples_melanoma_caught.png)
+
+**Harmless moles that cross-entropy got right but weighted CE flagged as something else** (297 such images):
+
+![Moles flagged by weighted CE](examples_nevi_flagged.png)
+
+**Melanomas missed by all three methods** (74 such images):
+
+![Melanomas missed by all methods](examples_melanoma_missed_by_all.png)
+
+These examples make the tradeoff concrete: on the seed-0 models, weighted CE catches 52 melanomas that cross-entropy missed, at the cost of flagging 297 moles that cross-entropy classified correctly. Many melanomas are still missed by every method; these often look like ordinary moles at this image resolution.
+
+*Images: DermaMNIST (MedMNIST v2, CC BY-NC 4.0), derived from HAM10000.*
+
+### Conclusion
+
+- **Class-weighted cross-entropy** improves rare-class detection on DermaMNIST (balanced accuracy 64.1% → 70.6%, melanoma recall 40.5% → 57.4%), but lowers overall accuracy (81.0% → 70.3%) and precision on every rare class. It shifts the decision boundary rather than improving the model's ranking ability.
+- **Focal loss** (without class weights) gives no reliable improvement over cross-entropy. A small gain on one seed disappeared over three seeds.
+- **Evaluation details matter**: choosing the checkpoint and the loss settings on validation (not test), and averaging over seeds, changed our conclusions more than once during this project.
 
 ## 6. Limitations
 
