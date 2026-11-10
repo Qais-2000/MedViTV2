@@ -1,6 +1,6 @@
 # Imbalance-Aware Training for Skin Lesion Classification (MedViTV2 + DermaMNIST)
 
-**ELEC-444 Final Project · Concordia University · Fall 2026**
+**ELEC-6661 Final Project · Concordia University · Fall 2026**
 Mohammad Qais Arshad · Mohammad Mohibul Haque · Ifthakhar Parvez Prothoy
 
 📄 **Project page (report):** https://qais-2000.github.io/MedViTV2/
