@@ -4,7 +4,7 @@ title: Imbalance-Aware Training for Skin Lesion Classification
 ---
 
 **ELEC-6661 Final Project · Concordia University · Fall 2026**
-Team: Person A (Mohammad Qais Arshad), Person B (Mohammad Mohibul Haque), Person C (Ifthakhar Parvez Prothoy)
+Team: Person A (Muhammad Qais Arshad), Person B (Mohammad Mohibul Haque), Person C (Ifthakhar Parvez Prothoy)
 Code: [github.com/Qais-2000/MedViTV2](https://github.com/Qais-2000/MedViTV2)
 
 ---
@@ -17,7 +17,7 @@ Skin cancer datasets are highly imbalanced: most images are harmless moles (nevi
 
 ## 2. Baseline and reproduction
 
-*Section by Mohammad Qais Arshad*
+*Section by Muhammad Qais Arshad*
 
 ### The baseline we build on
 
