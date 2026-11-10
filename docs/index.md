@@ -115,7 +115,48 @@ All loss-function comparisons in this project are made against **our** cross-ent
 
 ### 4.1 Class-weighted cross-entropy
 
-<!-- TODO (Person B): your section — what weighting does, inverse vs square-root weights, the sensitivity result (inverse chosen on validation: 0.720 vs 0.703), and the recall vs precision tradeoff. -->
+*Section by Mohammad Mohibul Haque*
+
+**The idea.** In normal cross-entropy, every mistake costs the same. Because two out of three training images are moles (nevi), the model learns that guessing "mole" is usually safe. Class-weighted cross-entropy changes this by giving each class a weight: mistakes on rare classes cost more, and mistakes on the common class cost less. This pushes the model to pay more attention to the rare lesions.
+
+The weights are computed from the number of training images in each class (we used only the training set for this). We tried two ways to compute them:
+
+- **Inverse frequency:** weight = N / (K × n<sub>c</sub>), where N is the total number of training images, K = 7 is the number of classes and n<sub>c</sub> is the number of images in class c. Rare classes get very large weights.
+- **Square-root inverse frequency:** weight ∝ 1 / √n<sub>c</sub>, scaled so the average weight is 1. This is a gentler version.
+
+| Class | Training images | Inverse weight | Square-root weight |
+|---|---|---|---|
+| Actinic keratoses | 228 | 4.39 | 1.11 |
+| Basal cell carcinoma | 359 | 2.79 | 0.88 |
+| Benign keratosis | 769 | 1.30 | 0.60 |
+| Dermatofibroma | 80 | **12.51** | 1.87 |
+| Melanoma | 779 | 1.28 | 0.60 |
+| Nevi (moles) | 4693 | **0.21** | 0.24 |
+| Vascular lesions | 99 | 10.11 | 1.68 |
+
+With inverse weights, a mistake on a dermatofibroma costs about 60 times more than a mistake on a mole. Melanoma is not one of the rarest classes (779 images), so it only gets a small weight; it is hard mainly because it looks like a mole.
+
+**Choosing the weighting (sensitivity analysis).** We trained both versions with seed 0 and chose the one with the better validation score.
+
+| Weighting | Validation balanced accuracy | Test balanced accuracy | Test melanoma recall | Test accuracy |
+|---|---|---|---|---|
+| Inverse | **72.0%** ← selected | 72.4% | 60.5% | 69.4% |
+| Square root | 70.3% | 69.6% | 47.5% | 76.8% |
+
+Inverse weighting won on validation, so we used it for seeds 1 and 2. The difference on validation was small (1.7 points), so this is not a strong win. The two versions show a clear pattern: **stronger weights find more rare lesions but get overall accuracy lower**, and the square-root version sits in between.
+
+**Results over 3 seeds (inverse weights, test set).**
+
+| Seed | Balanced accuracy | Melanoma recall | Accuracy | Macro F1 |
+|---|---|---|---|---|
+| 0 | 72.4% | 60.5% | 69.4% | 0.557 |
+| 1 | 68.3% | 54.7% | 69.5% | 0.532 |
+| 2 | 71.2% | 57.0% | 71.8% | 0.578 |
+| **Mean ± std** | **70.6 ± 2.2%** | **57.4 ± 2.9%** | **70.3 ± 1.4%** | **0.556 ± 0.023** |
+
+**What we found.** Weighted cross-entropy is the only method in our project that clearly improves rare-class detection. Compared with normal cross-entropy, balanced accuracy goes up by about 6.5 points and melanoma recall by about 17 points, and this holds on all three seeds.
+
+But it has a cost. Overall accuracy drops by about 11 points, because the model now calls many harmless moles something else. Precision on the rare classes also drops a lot: for example, only about 1 in 5 of its dermatofibroma predictions is correct. So weighting does not make the model "smarter"; it mainly makes it more willing to predict the rare classes. Section 5 looks at this tradeoff in detail.
 
 ### 4.2 Focal loss
 
