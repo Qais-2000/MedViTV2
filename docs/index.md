@@ -152,7 +152,7 @@ Our explanation is simple: focal loss focuses on hard images, but it does not te
 
 ## 5. Results
 
-*Section by Mohammad Qais Arshad*
+*Section by Muhammad Qais Arshad*
 
 All numbers are on the **test set**, as **mean ± standard deviation over 3 seeds**. Every method used the same model, data, training budget and validation-based model selection.
 
