@@ -17,7 +17,92 @@ Skin cancer datasets are highly imbalanced: most images are harmless moles (nevi
 
 ## 2. Baseline and reproduction
 
-<!-- TODO (Person A): paste the contents of docs/sections/baseline.md here, with the final CE mean ± std numbers. -->
+*Section by Mohammad Qais Arshad*
+
+### The baseline we build on
+
+We use **MedViTV2** (Manzari et al., *Applied Soft Computing*, 2025), a vision transformer that combines Kolmogorov–Arnold Network (KAN) layers with dilated neighborhood attention. The code is public at [github.com/Omid-Nejati/MedViTV2](https://github.com/Omid-Nejati/MedViTV2) (also mirrored by the IMPACT Lab) under the MIT license. We use the smallest variant, **MedViT-tiny**, because it has a released DermaMNIST checkpoint and fits our compute budget.
+
+### Dataset
+
+**DermaMNIST** (from the MedMNIST collection, based on HAM10000) at 224×224 resolution, 7 classes, with the official splits:
+
+| Class | Train | Val | Test |
+|---|---|---|---|
+| Actinic keratoses | 228 | 33 | 66 |
+| Basal cell carcinoma | 359 | 52 | 103 |
+| Benign keratosis | 769 | 110 | 220 |
+| Dermatofibroma | 80 | 12 | 23 |
+| Melanoma | 779 | 111 | 223 |
+| Melanocytic nevi (moles) | 4693 | 671 | 1341 |
+| Vascular lesions | 99 | 14 | 29 |
+| **Total** | **7007** | **1003** | **2005** |
+
+About **67% of the training images are nevi**, while dermatofibroma has only 80. This imbalance is the problem our project studies.
+
+### Getting the baseline to run
+
+The repository did not run as-is in Google Colab (November 2026). We had to fix three things:
+
+1. **Python version.** Colab now uses Python 3.13, but the required PyTorch 2.5 and NATTEN 0.17 have no builds for it. We created a separate Python 3.11 environment inside Colab (with `uv`) and installed PyTorch 2.5.0 (CUDA 12.4) and NATTEN 0.17.5 there.
+2. **Model file version.** On Oct 23, 2026 the upstream `MedViT.py` was updated for NATTEN 0.20+, which no longer matches the installation instructions or the released checkpoints. We use `MedViT.py` from the commit just before that update (`4a9e517`).
+3. **Dependencies.** The `torchattacks` package in `requirements.txt` is not used by the code and forces an old version of `requests` that breaks Colab, so we skip it.
+
+### Reproducing the reported result
+
+We loaded the authors' released MedViT-tiny DermaMNIST checkpoint and evaluated it on the official test set:
+
+| | Reported (README) | Our reproduction |
+|---|---|---|
+| Test accuracy | 78.1% | **78.25%** |
+
+The weights loaded with no missing or unexpected keys, and the accuracy matches within 0.2 points, so our setup is correct.
+
+### What the headline number hides
+
+Accuracy alone looks fine, but the per-class results show the model mostly predicts the majority class:
+
+| Metric (released checkpoint, test set) | Value |
+|---|---|
+| Balanced accuracy | 44.3% |
+| Macro AUC | 0.934 |
+| Nevi recall | 98.1% |
+| Melanoma recall | 37.2% |
+| Actinic keratoses recall | 16.7% |
+| **Dermatofibroma recall** | **0.0%** |
+
+More than half of the melanomas are classified as harmless moles, and dermatofibroma is never detected.
+
+### How the released checkpoint was selected
+
+The checkpoint file stores the value `0.9336` at epoch 21. This equals the checkpoint's **test-set AUC**. The repository's training script evaluates on the test set after every epoch and keeps the epoch with the best test AUC; DermaMNIST's validation split is not used. Choosing a checkpoint on the test set makes the reported test number optimistic.
+
+### Our training protocol
+
+To compare loss functions fairly, all our runs use one shared script (`train.py`) with:
+
+- the same model (MedViT-tiny, trained from scratch), augmentation (random resized crop, AugMix, horizontal flip), optimizer (AdamW, lr 1e-4, weight decay 0.05), batch size 24 and cosine learning-rate schedule as the original repository
+- **50 epochs** per run (instead of 100) to fit our compute budget; the released checkpoint peaked at epoch 21
+- the best epoch chosen by **validation balanced accuracy**; the test set is used **once**, at the end
+- three random seeds (0, 1, 2) per method
+
+One run takes about 1 h 45 min on a Colab T4 GPU (2.1 min per epoch, 4.9 GB of GPU memory).
+
+### Our cross-entropy baseline
+
+With this protocol and the standard cross-entropy loss (3 seeds, mean ± std):
+
+| Test set | Released checkpoint | Our CE baseline (3 seeds) |
+|---|---|---|
+| Accuracy | 78.3% | 81.0 ± 0.2% |
+| Balanced accuracy | 44.3% | 64.1 ± 2.2% |
+| Macro AUC | 0.934 | 0.953 ± 0.002 |
+| Melanoma recall | 37.2% | 40.5 ± 0.5% |
+| Dermatofibroma recall | 0.0% | 39.1%, 30.4%, 47.8% (seeds 0, 1, 2) |
+
+Our baseline is much stronger on the rare classes than the released checkpoint, even though the model and loss are the same. Two things differ: the training length (50-epoch schedule; best epochs 44–48) and how the checkpoint is chosen (validation balanced accuracy instead of test AUC). We cannot separate the two effects with these runs, but the result shows that **the selection rule and training budget matter as much as the architecture** for imbalanced data.
+
+All loss-function comparisons in this project are made against **our** cross-entropy baseline, not the released checkpoint, so every method gets the same training and selection protocol.
 
 ## 3. Data and evaluation
 
@@ -65,19 +150,19 @@ Focal loss is different from weighted cross-entropy (Section 4.1). Weighted cros
 
 Our explanation is simple: focal loss focuses on hard images, but it does not tell the model that rare classes are important. So it does not push the model toward the rare lesions. On DermaMNIST, focal loss alone was not enough to deal with the class imbalance.
 
-## 5. Results
+   ## 5. Results
 
-<!-- TODO (Person A): main table — CE vs weighted (inverse) vs focal (γ=3), mean ± std over 3 seeds. -->
+   <!-- TODO (Person A): main table ... -->
 
-<!-- TODO (Person B): figures — confusion matrices, per-class recall vs precision chart, training curves. -->
+   <!-- TODO (Person B): figures ... -->
 
-### Recall vs. precision tradeoff
+   ### Recall vs. precision tradeoff
 
-<!-- TODO (all): discuss whether higher minority-class recall costs precision or nevi recall (TA point 3). -->
+   <!-- TODO (all): ... -->
 
-### Examples
+   ### Examples
 
-<!-- TODO (Person C): grid of correct / incorrect predictions (melanomas missed by CE but caught by weighted, nevi wrongly flagged), if the dataset license allows showing images. -->
+   <!-- TODO (Person C): ... -->
 
 ## 6. Limitations
 
@@ -86,6 +171,7 @@ Our explanation is simple: focal loss focuses on hard images, but it does not te
 - Three seeds per method; differences of a few points are within seed-to-seed variation.
 - The weighting scheme and γ were tuned on validation, while cross-entropy had no tuning; we report this openly.
 - A few runs were interrupted by Colab and resumed from a checkpoint, so they are not bit-for-bit identical to an uninterrupted run.
+- All training curves were still rising at epoch 50, so longer training might improve every method.
 
 ## 7. How to reproduce
 
